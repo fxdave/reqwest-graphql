@@ -19,9 +19,13 @@ struct RequestBody<'a, T: Serialize> {
 }
 
 #[derive(Deserialize, Debug)]
-struct GraphQLResponse<T> {
-    data: Option<T>,
-    errors: Option<Vec<GraphQLErrorMessage>>,
+#[serde(untagged)]
+enum GraphQLResponse<T> {
+    ConventionResponse {
+        data: Option<T>,
+        errors: Option<Vec<GraphQLErrorMessage>>,
+    },
+    UnconventionalResponse(serde_json::Value),
 }
 
 impl<'a> GQLClient<'a> {
@@ -76,13 +80,19 @@ impl<'a> GQLClient<'a> {
 
         // Check whether JSON is parsed successfully
         match json_response {
-            Ok(json) => {
+            Ok(GraphQLResponse::ConventionResponse { data, errors }) => {
                 // Check if error messages have been received
-                if json.errors.is_some() {
-                    return Err(GraphQLError::from_json(json.errors.unwrap()));
+                if errors.is_some() {
+                    return Err(GraphQLError::from_json(errors.unwrap()));
                 }
 
-                Ok(json.data.unwrap())
+                Ok(data.unwrap())
+            }
+            Ok(GraphQLResponse::UnconventionalResponse(value)) => {
+                return Err(GraphQLError {
+                    message: value.to_string(),
+                    json: None,
+                });
             }
             Err(_e) => Err(GraphQLError::from_str("Failed to parse response")),
         }

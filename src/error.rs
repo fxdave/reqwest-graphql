@@ -4,17 +4,30 @@ use std::fmt;
 use std::fmt::Formatter;
 
 pub struct GraphQLError {
-    message: String,
-    json: Option<Vec<GraphQLErrorMessage>>,
+    pub message: String,
+    pub json: Option<Vec<GraphQLErrorMessage>>,
 }
 
 // https://spec.graphql.org/June2018/#sec-Errors
 #[derive(Deserialize, Debug)]
-pub struct GraphQLErrorMessage {
-    message: String,
-    locations: Option<Vec<GraphQLErrorLocation>>,
-    extensions: Option<serde_json::Value>,
-    path: Option<Vec<GraphQLErrorPathParam>>,
+#[serde(untagged)]
+pub enum GraphQLErrorMessage {
+    ConventionalError {
+        message: String,
+        locations: Option<Vec<GraphQLErrorLocation>>,
+        extensions: Option<serde_json::Value>,
+        path: Option<Vec<GraphQLErrorPathParam>>,
+    },
+    UnconventionalError(serde_json::Value),
+}
+
+impl GraphQLErrorMessage {
+    fn message(&self) -> String {
+        match self {
+            Self::ConventionalError { message, .. } => message.to_string(),
+            Self::UnconventionalError(value) => value.to_string(),
+        }
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -66,7 +79,7 @@ fn format(err: &GraphQLError, f: &mut Formatter<'_>) -> fmt::Result {
     let errors = err.json.as_ref();
 
     for err in errors.unwrap() {
-        writeln!(f, "Message: {}", err.message)?;
+        writeln!(f, "Message: {}", err.message())?;
     }
 
     Ok(())
