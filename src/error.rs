@@ -1,7 +1,9 @@
 use reqwest::Error;
 use serde::Deserialize;
+use std::convert::Infallible;
 use std::fmt;
 use std::fmt::Formatter;
+use std::str::FromStr;
 
 pub struct GraphQLError {
     pub message: String,
@@ -32,8 +34,8 @@ impl GraphQLErrorMessage {
 
 #[derive(Deserialize, Debug)]
 pub struct GraphQLErrorLocation {
-    line: u32,
-    column: u32,
+    pub line: u32,
+    pub column: u32,
 }
 
 #[derive(Deserialize, Debug)]
@@ -43,14 +45,19 @@ pub enum GraphQLErrorPathParam {
     Number(u32),
 }
 
-impl GraphQLError {
-    pub fn from_str(message: &str) -> Self {
-        Self {
-            message: String::from(message),
+impl FromStr for GraphQLError {
+    type Err = Infallible;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Self {
+            message: String::from(s),
             json: None,
-        }
+        })
     }
+}
 
+impl std::error::Error for GraphQLError {}
+
+impl GraphQLError {
     pub fn from_json(json: Vec<GraphQLErrorMessage>) -> Self {
         Self {
             message: String::from("Look at json field for more details"),
@@ -93,7 +100,7 @@ impl fmt::Display for GraphQLError {
 
 impl fmt::Debug for GraphQLError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        format(&self, f)
+        format(self, f)
     }
 }
 
