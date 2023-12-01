@@ -80,16 +80,14 @@ impl<'a> GQLClient<'a> {
 
         // Check whether JSON is parsed successfully
         match json_response {
-            Ok(GraphQLResponse::ConventionResponse { data, errors }) => {
-                if let Some(errors) = errors {
-                    return Err(GraphQLError::from_json(errors));
-                }
-
-                Ok(data.unwrap())
-            }
+            Ok(GraphQLResponse::ConventionResponse { data, errors: None }) => Ok(data.unwrap()),
+            Ok(GraphQLResponse::ConventionResponse {
+                errors: Some(errors),
+                ..
+            }) => Err(GraphQLError::from_json(errors)),
             Ok(GraphQLResponse::UnconventionalResponse(value)) => Err(GraphQLError {
-                message: value.to_string(),
-                json: None,
+                message: "Couldn't parse the result.".into(),
+                json: Some(vec![GraphQLErrorMessage::UnconventionalError(value)]),
             }),
             Err(_e) => Err(GraphQLError::from_str("Failed to parse response").unwrap()),
         }
